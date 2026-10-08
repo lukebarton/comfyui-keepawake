@@ -1,0 +1,3 @@
+# Collapse generated files in GitHub diffs and leave them out of language stats.
+flake.lock linguist-generated=true
+.copier-answers.yml linguist-generated=true

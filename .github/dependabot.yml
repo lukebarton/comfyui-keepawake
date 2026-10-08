@@ -1,0 +1,13 @@
+# Keeps GitHub Actions versions current, updating both the pinned commit SHA and the version comment.
+# flake.lock is handled by update-flake-lock.yml.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
+    groups:
+      actions:
+        patterns: ["*"]

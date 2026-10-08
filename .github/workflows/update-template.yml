@@ -1,0 +1,74 @@
+name: Update template
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+      - uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
+      - run: git config --global user.name github-actions && git config --global user.email github-actions@users.noreply.github.com
+      # AUTOMATION_TOKEN (set with `just set-automation-token`) is needed to clone the template while it is
+      # private, to push changes to workflow files, and for the PR to trigger CI.
+      - name: Authenticate template clone
+        env:
+          AUTOMATION_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
+        run: |
+          if [ -n "$AUTOMATION_TOKEN" ]; then
+            git config --global \
+              url."https://x-access-token:${AUTOMATION_TOKEN}@github.com/lukebarton/project-template".insteadOf \
+              "https://github.com/lukebarton/project-template"
+          fi
+      - name: Record the template version before updating
+        id: before
+        run: |
+          echo "commit=$(sed -n 's/^_commit: //p' .copier-answers.yml)" >> "$GITHUB_OUTPUT"
+      - run: nix develop --command just update-template
+      # Lists the template commits between the old and new versions in the PR body.
+      - name: Describe the template changes
+        id: changes
+        env:
+          OLD: ${{ steps.before.outputs.commit }}
+        run: |
+          new="$(sed -n 's/^_commit: //p' .copier-answers.yml)"
+          repo="https://github.com/lukebarton/project-template"
+          template="$RUNNER_TEMP/template"
+          git clone --quiet --filter=blob:none --no-checkout "$repo" "$template"
+          # _commit is `git describe` output (e.g. v0.2.0-3-gabc1234), which git resolves to a commit.
+          if old_sha="$(git -C "$template" rev-parse --verify --quiet "$OLD^{commit}")" &&
+            new_sha="$(git -C "$template" rev-parse --verify --quiet "$new^{commit}")"; then
+            log="$(git -C "$template" log --reverse --format='- %s' "$old_sha..$new_sha")"
+            summary="Template changes from \`$OLD\` to \`$new\` ([compare]($repo/compare/$old_sha...$new_sha)):"
+          else
+            log=""
+            summary="Template updated from \`$OLD\` to \`$new\`. Couldn't list the commits between them."
+          fi
+          {
+            echo "body<<END_OF_BODY"
+            echo "$summary"
+            echo
+            echo "$log"
+            echo "END_OF_BODY"
+          } >> "$GITHUB_OUTPUT"
+      - uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          token: ${{ secrets.AUTOMATION_TOKEN || github.token }}
+          branch: update-template
+          title: "chore: update from project template"
+          commit-message: "chore: update from project template"
+          body: |
+            Applies the latest changes from the project template (`just update-template`).
+
+            ${{ steps.changes.outputs.body }}
+
+            Where the template and this project changed the same lines, the files contain conflict markers
+            and CI fails. Resolve them on this branch before merging.
