@@ -10,8 +10,11 @@ default:
 # Deploy and publish steps get their own recipes and CI jobs.
 verify: check lint test
 
-# Run the tests. Empty until the project has some; replace the body with the test command.
+# Run the tests: the custom node's HTTP routes, then the Windows script's keep-awake decision.
+# --rootdir stops pytest importing the repo-root __init__.py, which only loads inside ComfyUI.
 test:
+    python -m pytest -q -p no:cacheprovider -o asyncio_mode=auto --rootdir tests tests
+    pwsh -NoProfile -NonInteractive -File tests/keepawake.Tests.ps1
 
 # Pull in changes from the project template
 update-template:

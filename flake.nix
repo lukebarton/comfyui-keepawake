@@ -76,7 +76,15 @@
 
       devShells = forAllSystems (pkgs: {
         default = pkgs.mkShell {
-          packages = tools pkgs;
+          packages = tools pkgs ++ [
+            # Tests for the custom node (pytest) and the Windows script (pwsh).
+            (pkgs.python3.withPackages (ps: [
+              ps.aiohttp
+              ps.pytest
+              ps.pytest-aiohttp
+            ]))
+            pkgs.powershell
+          ];
           # Installs the git pre-commit hook each time the shell loads.
           inherit (hooks.${system pkgs}) shellHook;
         };

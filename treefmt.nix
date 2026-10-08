@@ -11,7 +11,15 @@
     just.enable = true; # justfile
     shfmt.enable = true; # shell scripts
     actionlint.enable = true; # GitHub Actions workflows
+    ruff-format.enable = true; # Python
+    ruff-check.enable = true; # Python lint
   };
+
+  # ComfyUI loads the repo as a package named after its folder, comfyui-keepawake, which isn't a valid Python module name.
+  settings.formatter.ruff-check.options = [
+    "--ignore"
+    "N999"
+  ];
 
   settings.formatter.shfmt.includes = [ ".envrc" ];
 
